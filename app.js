@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
+const router = require('./routes');
 
 const { PORT = 3000 } = process.env;
 const mongo = 'mongodb://localhost:27017/mestodb';
@@ -9,8 +9,7 @@ const mongoOptions = {
 };
 const app = express();
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 
 mongoose.connect(mongo, mongoOptions);
 
@@ -20,9 +19,6 @@ app.use((req, res, next) => {
   };
   next();
 });
-app.use(require('./routes/users'));
-app.use(require('./routes/cards'));
-
-app.use('*', (req, res) => res.status(404).send({ message: 'Resource Not Found' }));
+app.use(router);
 
 app.listen(PORT, () => console.log(`App started on the port ${PORT}`));
