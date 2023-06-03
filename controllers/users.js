@@ -53,8 +53,12 @@ const updateUser = (req, res) => {
   User.findByIdAndUpdate(req.user._id, req.body, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
     .catch((err) => {
-      res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-      console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
+      if (err instanceof ValidationError) {
+        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
+      } else {
+        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
+        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
+      }
     });
 };
 
