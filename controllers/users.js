@@ -49,8 +49,9 @@ module.exports.createUser = (req, res) => {
     });
 };
 
-const updateUser = (req, res) => {
-  User.findByIdAndUpdate(req.user._id, req.body, { new: true, runValidators: true })
+module.exports.updateUserBio = (req, res) => {
+  const { name, about } = req.body;
+  User.findByIdAndUpdate(req.user._id, { name, about }, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
     .catch((err) => {
       if (err instanceof ValidationError) {
@@ -62,8 +63,16 @@ const updateUser = (req, res) => {
     });
 };
 
-const updateUserBio = (func) => func;
-const updateUserAvatar = (func) => func;
-
-module.exports.updateUserBio = updateUserBio(updateUser);
-module.exports.updateUserAvatar = updateUserAvatar(updateUser);
+module.exports.updateUserAvatar = (req, res) => {
+  const { avatar } = req.body;
+  User.findByIdAndUpdate(req.user._id, { avatar }, { new: true, runValidators: true })
+    .then((user) => res.send({ data: user }))
+    .catch((err) => {
+      if (err instanceof ValidationError) {
+        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
+      } else {
+        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
+        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
+      }
+    });
+};
