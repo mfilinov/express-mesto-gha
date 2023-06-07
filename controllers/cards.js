@@ -11,7 +11,7 @@ const getCards = (req, res, next) => {
   Card.find({})
     .populate('owner')
     .then((cards) => res.send({ data: cards }))
-    .catch((err) => next(err));
+    .catch(next);
 };
 
 const createCard = (req, res, next) => {
@@ -34,7 +34,7 @@ const deleteCard = (req, res, next) => {
       if (card.owner.toString() !== req.user._id) return next(new ForbiddenError());
       return Card.deleteOne(card).then(() => res.send({ data: card }));
     })
-    .catch((err) => next(err));
+    .catch(next);
 };
 
 const likeCard = (req, res, next) => {
@@ -46,7 +46,7 @@ const likeCard = (req, res, next) => {
     .orFail(new NotFoundError(`Card with id=${req.params.cardId} not found`))
     .populate('owner')
     .then((card) => res.send({ data: card }))
-    .catch((err) => next(err));
+    .catch(next);
 };
 
 const dislikeCard = (req, res, next) => {
@@ -58,7 +58,7 @@ const dislikeCard = (req, res, next) => {
     .orFail(new NotFoundError(`Card with id=${req.params.cardId} not found`))
     .populate('owner')
     .then((card) => res.send({ data: card }))
-    .catch((err) => next(err));
+    .catch(next);
 };
 
 module.exports = {
