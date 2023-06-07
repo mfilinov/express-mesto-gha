@@ -2,7 +2,12 @@
 # Проект Mesto фронтенд + бэкенд
 
 ## API
-Coming soon
+/users
+  get / - получить всех пользователей
+  get /me - информация о себе
+  get/:userId - информации о пользователей по id
+  patch /me - изменить name, about
+  patch /me/avatar - изменить avatar
 
 ## Запуск проекта
 
