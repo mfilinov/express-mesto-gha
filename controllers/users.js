@@ -1,78 +1,83 @@
+const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
-const {
-  HTTP_STATUS_CREATED,
-  HTTP_STATUS_BAD_REQUEST,
-  HTTP_STATUS_NOT_FOUND,
-  HTTP_STATUS_INTERNAL_SERVER_ERROR,
-} = require('http2').constants;
+const { HTTP_STATUS_CREATED } = require('http2').constants;
+const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const { INTERNAL_SERVER_ERROR } = require('../utils/constants');
+const { JWT_SECRET } = require('../utils/config');
+const NotFoundError = require('../utils/errors/NotFound');
+const BadRequestError = require('../utils/errors/BadRequest');
+const ConflictError = require('../utils/errors/Conflict');
 
-const { ValidationError, CastError } = mongoose.Error;
+const { ValidationError } = mongoose.Error;
 
-module.exports.getUsers = (req, res) => {
+module.exports.getUsers = (req, res, next) => {
   User.find({})
     .then((users) => res.send({ data: users }))
-    .catch((err) => {
-      res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-      console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-    });
+    .catch((err) => next(err));
 };
 
-module.exports.getUserById = (req, res) => {
-  User.findById(req.params.userId)
-    .orFail(new Error('InvalidId'))
+module.exports.getUser = (req, res, next) => {
+  User.findById(req.user._id)
     .then((user) => res.send({ data: user }))
-    .catch((err) => {
-      if (err instanceof CastError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: `User id=${req.params.userId} is incorrect` });
-      } else if (err.message === 'InvalidId') {
-        res.status(HTTP_STATUS_NOT_FOUND).send({ message: `User with id=${req.params.userId} not found` });
-      } else {
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-      }
+    .catch((err) => next(err));
+};
+
+module.exports.getUserById = (req, res, next) => {
+  User.findById(req.params.userId)
+    .orFail(new NotFoundError(`User with id=${req.params.userId} not found`))
+    .then((user) => res.send({ data: user }))
+    .catch((err) => next(err));
+};
+
+module.exports.createUser = (req, res, next) => {
+  const {
+    name, about, avatar, email, password,
+  } = req.body;
+  bcrypt.hash(password, 10)
+    .then((hash) => {
+      User.create({
+        name, about, avatar, email, password: hash,
+      })
+        .then(() => res.status(HTTP_STATUS_CREATED).send({
+          data: name, about, avatar, email,
+        }))
+        .catch((err) => {
+          if (err instanceof ValidationError) {
+            next(new BadRequestError({ message: err.message }));
+          } else if (err.code === 11000) {
+            next(new ConflictError(`User ${email} already exists`));
+          } else {
+            next(err);
+          }
+        });
     });
 };
 
-module.exports.createUser = (req, res) => {
-  const { name, about, avatar } = req.body;
-  User.create({ name, about, avatar })
-    .then((user) => res.status(HTTP_STATUS_CREATED).send({ data: user }))
-    .catch((err) => {
-      if (err instanceof ValidationError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
-      } else {
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-      }
-    });
-};
-
-module.exports.updateUserBio = (req, res) => {
+module.exports.updateUserBio = (req, res, next) => {
   const { name, about } = req.body;
   User.findByIdAndUpdate(req.user._id, { name, about }, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
-    .catch((err) => {
-      if (err instanceof ValidationError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
-      } else {
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-      }
-    });
+    .catch((err) => next(err));
 };
 
-module.exports.updateUserAvatar = (req, res) => {
+module.exports.updateUserAvatar = (req, res, next) => {
   const { avatar } = req.body;
   User.findByIdAndUpdate(req.user._id, { avatar }, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
-    .catch((err) => {
-      if (err instanceof ValidationError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
-      } else {
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-      }
-    });
+    .catch((err) => next(err));
+};
+
+module.exports.login = (req, res, next) => {
+  const { email, password } = req.body;
+
+  return User.findUserByCredentials(email, password)
+    .then((user) => {
+      const token = jwt.sign(
+        { _id: user._id },
+        JWT_SECRET,
+        { expiresIn: '7d' },
+      );
+      res.send({ token });
+    })
+    .catch((err) => next(err));
 };

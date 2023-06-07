@@ -1,95 +1,64 @@
 const mongoose = require('mongoose');
-const {
-  HTTP_STATUS_CREATED,
-  HTTP_STATUS_BAD_REQUEST,
-  HTTP_STATUS_NOT_FOUND,
-  HTTP_STATUS_INTERNAL_SERVER_ERROR,
-} = require('http2').constants;
+const { HTTP_STATUS_CREATED } = require('http2').constants;
 const Card = require('../models/card');
-const { INTERNAL_SERVER_ERROR, INVALID_ID } = require('../utils/constants');
+const BadRequestError = require('../utils/errors/BadRequest');
+const NotFoundError = require('../utils/errors/NotFound');
+const ForbiddenError = require('../utils/errors/Forbidden');
 
-const { ValidationError, CastError } = mongoose.Error;
+const { ValidationError } = mongoose.Error;
 
-const getCards = (req, res) => {
+const getCards = (req, res, next) => {
   Card.find({})
     .populate('owner')
     .then((cards) => res.send({ data: cards }))
-    .catch((err) => {
-      console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-      res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-    });
+    .catch((err) => next(err));
 };
 
-const createCard = (req, res) => {
+const createCard = (req, res, next) => {
   const { name, link } = req.body;
   Card.create({ name, link, owner: req.user._id })
     .then((card) => res.status(HTTP_STATUS_CREATED).send({ data: card }))
     .catch((err) => {
       if (err instanceof ValidationError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
+        next(new BadRequestError(err.message));
       } else {
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
+        next(err);
       }
     });
 };
 
-const deleteCard = (req, res) => {
-  Card.findByIdAndRemove(req.params.cardId)
-    .orFail(new Error(INVALID_ID))
-    .then((card) => res.send({ data: card }))
-    .catch((err) => {
-      if (err instanceof CastError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: `Card id=${req.params.cardId} is incorrect` });
-      } else if (err.message === INVALID_ID) {
-        res.status(HTTP_STATUS_NOT_FOUND).send({ message: `Card with id=${req.params.cardId} not found` });
-      } else {
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-      }
-    });
+const deleteCard = (req, res, next) => {
+  Card.findById(req.params.cardId)
+    .orFail(new NotFoundError(`Card with id=${req.params.cardId} not found`))
+    .then((card) => {
+      if (card.owner.toString() !== req.user._id) return new ForbiddenError();
+      return Card.deleteOne(card).then(() => res.send({ data: card }));
+    })
+    .catch((err) => next(err));
 };
 
-const likeCard = (req, res) => {
+const likeCard = (req, res, next) => {
   Card.findByIdAndUpdate(
     req.params.cardId,
     { $addToSet: { likes: req.user._id } },
     { new: true },
   )
-    .orFail(new Error(INVALID_ID))
+    .orFail(new NotFoundError(`Card with id=${req.params.cardId} not found`))
     .populate('owner')
     .then((card) => res.send({ data: card }))
-    .catch((err) => {
-      if (err instanceof CastError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
-      } else if (err.message === INVALID_ID) {
-        res.status(HTTP_STATUS_NOT_FOUND).send({ message: `Card with id=${req.params.cardId} not found` });
-      } else {
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-      }
-    });
+    .catch((err) => next(err));
 };
 
-const dislikeCard = (req, res) => {
+const dislikeCard = (req, res, next) => {
   Card.findByIdAndUpdate(
     req.params.cardId,
     { $pull: { likes: req.user._id } },
     { new: true },
   )
-    .orFail(new Error(INVALID_ID))
+    .orFail(new NotFoundError(`Card with id=${req.params.cardId} not found`))
     .populate('owner')
     .then((card) => res.send({ data: card }))
-    .catch((err) => {
-      if (err instanceof CastError) {
-        res.status(HTTP_STATUS_BAD_REQUEST).send({ message: err.message });
-      } else if (err.message === INVALID_ID) {
-        res.status(HTTP_STATUS_NOT_FOUND).send({ message: `Card with id=${req.params.cardId} not found` });
-      } else {
-        console.log(HTTP_STATUS_INTERNAL_SERVER_ERROR, err.message);
-        res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ message: INTERNAL_SERVER_ERROR });
-      }
-    });
+    .catch((err) => next(err));
 };
 
 module.exports = {

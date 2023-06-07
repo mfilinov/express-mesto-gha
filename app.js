@@ -1,24 +1,24 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { errors } = require('celebrate');
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('./middlewares/rateLimit');
+const errorHandler = require('./middlewares/errorHandler');
 const router = require('./routes');
+const { APP_PORT, MONGO_DB, MONGO_OPTIONS } = require('./utils/config');
 
-const { PORT = 3000 } = process.env;
-const mongo = 'mongodb://localhost:27017/mestodb';
-const mongoOptions = {
-  useNewUrlParser: true,
-};
 const app = express();
 
+app.use(cors());
+app.use(rateLimit);
+app.use(helmet());
 app.use(express.json());
 
-mongoose.connect(mongo, mongoOptions);
+mongoose.connect(MONGO_DB, MONGO_OPTIONS);
 
-app.use((req, res, next) => {
-  req.user = {
-    _id: '647858985bc3ef0c75b0cdb7',
-  };
-  next();
-});
 app.use(router);
+app.use(errors());
+app.use(errorHandler);
 
-app.listen(PORT, () => console.log(`App started on the port ${PORT}`));
+app.listen(APP_PORT, () => console.log(`App started on the port ${APP_PORT}`));
