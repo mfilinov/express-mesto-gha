@@ -2,7 +2,7 @@ const { celebrate, Joi } = require('celebrate');
 // TODO
 const URL_REGEX = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)/;
 
-const validateParamsMongoId = celebrate({
+const validateParamsUserId = celebrate({
   params: Joi.object().keys({
     userId: Joi.string().hex().length(24).required(),
   }),
@@ -28,6 +28,12 @@ const validateCreateCard = celebrate({
   }),
 });
 
+const validateParamsCardId = celebrate({
+  params: Joi.object().keys({
+    cardId: Joi.string().hex().length(24).required(),
+  }),
+});
+
 const validateLogin = celebrate({
   body: Joi.object().keys({
     email: Joi.string().email().required(),
@@ -46,10 +52,11 @@ const validateCreateUser = celebrate({
 });
 
 module.exports = {
-  validateParamsMongoId,
+  validateParamsUserId,
   validateUserBio,
   validateUserAvatar,
   validateCreateCard,
+  validateParamsCardId,
   validateLogin,
   validateCreateUser,
 };

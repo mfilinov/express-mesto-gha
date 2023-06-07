@@ -39,7 +39,9 @@ module.exports.createUser = (req, res, next) => {
         name, about, avatar, email, password: hash,
       })
         .then(() => res.status(HTTP_STATUS_CREATED).send({
-          data: name, about, avatar, email,
+          data: {
+            name, about, avatar, email,
+          },
         }))
         .catch((err) => {
           if (err instanceof ValidationError) {
